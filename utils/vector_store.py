@@ -127,15 +127,16 @@ def get_vector_store():
                     set_vector_store_instance(vector_store)
                 else:
                     # Create a Pinecone vector store with existing documents
-                    _vector_store = LangchainPinecone.from_documents(
+                    vector_store = LangchainPinecone.from_documents(
                         documents=documents,
                         embedding=embeddings,
                         index_name=PINECONE_INDEX_NAME,
                         pinecone_api_key=pinecone_api_key
                     )
+                    set_vector_store_instance(vector_store)
                 
                 logger.info("Successfully initialized Pinecone vector store")
-                return _vector_store
+                return vector_store
             except Exception as e:
                 logger.error(f"Error creating Pinecone vector store: {str(e)}")
                 # Fall back to FAISS
@@ -146,17 +147,20 @@ def get_vector_store():
         
         if not documents:
             # Create an empty FAISS vector store
-            _vector_store = FAISS.from_texts(
+            vector_store = FAISS.from_texts(
                 texts=["This is a placeholder document to initialize the vector store."], 
                 embedding=embeddings,
                 metadatas=[{"chunk_id": "placeholder", "document_id": "placeholder"}]
             )
         else:
             # Create a FAISS vector store with existing documents
-            _vector_store = FAISS.from_documents(documents=documents, embedding=embeddings)
+            vector_store = FAISS.from_documents(documents=documents, embedding=embeddings)
+        
+        # Store the instance
+        set_vector_store_instance(vector_store)
         
         logger.info("Successfully initialized FAISS vector store")
-        return _vector_store
+        return vector_store
     
     except Exception as e:
         logger.error(f"Error initializing vector store: {str(e)}")

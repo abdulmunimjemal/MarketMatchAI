@@ -51,8 +51,8 @@ def switch_to_faiss():
     if set_vector_store_type('faiss'):
         print("Successfully switched to FAISS vector store")
         # Reset the vector store to force reinitialization
-        import utils.vector_store
-        utils.vector_store.reset_vector_store()
+        from utils.vector_store_reset import reset_vector_store
+        reset_vector_store()
     else:
         print("Failed to switch to FAISS vector store")
 
@@ -65,8 +65,8 @@ def switch_to_pinecone():
     if set_vector_store_type('pinecone'):
         print("Successfully switched to Pinecone vector store")
         # Reset the vector store to force reinitialization
-        import utils.vector_store
-        utils.vector_store.reset_vector_store()
+        from utils.vector_store_reset import reset_vector_store
+        reset_vector_store()
     else:
         print("Failed to switch to Pinecone vector store")
 
