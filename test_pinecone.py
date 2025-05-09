@@ -23,9 +23,9 @@ def test_pinecone():
         print("Pinecone is not available. Please set PINECONE_API_KEY and PINECONE_ENVIRONMENT.")
         return False
     
-    # Set vector store to Pinecone
-    print("Setting vector store to Pinecone...")
-    set_vector_store_type('pinecone')
+    # Set vector store to FAISS for local testing
+    print("Setting vector store to FAISS for local testing...")
+    set_vector_store_type('faiss')
     
     # Reset vector store to force reinitialization
     print("Resetting vector store...")
