@@ -33,34 +33,48 @@ def initialize_pinecone():
         import os
         pinecone_api_key = os.environ.get('PINECONE_API_KEY')
         
-        # Initialize Pinecone with new API
+        # Initialize Pinecone
         pc = pinecone.Pinecone(api_key=pinecone_api_key)
         
         try:
             # Check if index exists
-            index_list = [index.name for index in pc.list_indexes()]
+            try:
+                index_list = [index.name for index in pc.list_indexes()]
+                
+                if PINECONE_INDEX_NAME not in index_list:
+                    logger.info(f"Pinecone index '{PINECONE_INDEX_NAME}' doesn't exist yet, creating it...")
+                    # Create the index
+                    try:
+                        from pinecone import ServerlessSpec
+                        pc.create_index(
+                            name=PINECONE_INDEX_NAME,
+                            dimension=1536,  # OpenAI ada-002 embeddings dimension
+                            metric="cosine",
+                            spec=ServerlessSpec(cloud="aws", region="us-east-1")
+                        )
+                        logger.info(f"Successfully created Pinecone index: {PINECONE_INDEX_NAME}")
+                    except Exception as e:
+                        logger.error(f"Error creating Pinecone index: {str(e)}")
+                        return False
+                else:
+                    logger.info(f"Using existing Pinecone index: {PINECONE_INDEX_NAME}")
+            except Exception as e:
+                logger.error(f"Error checking Pinecone indexes: {str(e)}")
+                return False
             
-            if PINECONE_INDEX_NAME not in index_list:
-                logger.info(f"Pinecone index '{PINECONE_INDEX_NAME}' doesn't exist yet, creating it...")
-                # Create the index
-                try:
-                    from pinecone import ServerlessSpec
-                    pc.create_index(
-                        name=PINECONE_INDEX_NAME,
-                        dimension=1536,  # OpenAI ada-002 embeddings dimension
-                        metric="cosine",
-                        spec=ServerlessSpec(cloud="aws", region="us-east-1")
-                    )
-                    logger.info(f"Successfully created Pinecone index: {PINECONE_INDEX_NAME}")
-                    return True
-                except Exception as e:
-                    logger.error(f"Error creating Pinecone index: {str(e)}")
-                    return False
-            else:
-                logger.info(f"Using existing Pinecone index: {PINECONE_INDEX_NAME}")
+            # Try to access the index to verify it works
+            try:
+                index = pc.Index(PINECONE_INDEX_NAME)
+                # Query the index stats to verify connection
+                stats = index.describe_index_stats()
+                logger.info(f"Successfully connected to Pinecone index: {PINECONE_INDEX_NAME}")
                 return True
+            except Exception as e:
+                logger.error(f"Error connecting to Pinecone index: {str(e)}")
+                return False
+            
         except Exception as e:
-            logger.error(f"Error checking Pinecone indexes: {str(e)}")
+            logger.error(f"Error accessing Pinecone: {str(e)}")
             return False
         
     except Exception as e:
@@ -118,20 +132,29 @@ def get_vector_store():
                         metadata={"chunk_id": "placeholder", "document_id": "placeholder"}
                     )
                     
+                    # Initialize Pinecone first
+                    import pinecone
+                    pc = pinecone.Pinecone(api_key=pinecone_api_key)
+                    index = pc.Index(PINECONE_INDEX_NAME)
+                    
+                    # Create a vector store using the index
                     vector_store = LangchainPinecone.from_documents(
                         documents=[placeholder_doc],
                         embedding=embeddings,
-                        index_name=PINECONE_INDEX_NAME,
-                        pinecone_api_key=pinecone_api_key
+                        index_name=PINECONE_INDEX_NAME
                     )
                     set_vector_store_instance(vector_store)
                 else:
-                    # Create a Pinecone vector store with existing documents
+                    # Initialize Pinecone first
+                    import pinecone
+                    pc = pinecone.Pinecone(api_key=pinecone_api_key)
+                    index = pc.Index(PINECONE_INDEX_NAME)
+                    
+                    # Create a vector store using the index
                     vector_store = LangchainPinecone.from_documents(
                         documents=documents,
                         embedding=embeddings,
-                        index_name=PINECONE_INDEX_NAME,
-                        pinecone_api_key=pinecone_api_key
+                        index_name=PINECONE_INDEX_NAME
                     )
                     set_vector_store_instance(vector_store)
                 
