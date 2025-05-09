@@ -1,0 +1,273 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row align-items-center mb-4">
+    <div class="col-lg-8">
+        <h1>Market Matching Query</h1>
+        <p class="lead">Ask questions about your documents and get relevant, market-focused answers</p>
+    </div>
+    <div class="col-lg-4 text-end">
+        <img src="https://pixabay.com/get/g4187cd7c47a70eb9dce9115045a46d183e8a8400941e4613460c918d579be629b389c9b9699c1f8b464bad53192a2c5241cc5f78a7c46cbd56b0d9f2577d0522_1280.jpg" alt="Modern Tech Interface" class="img-fluid rounded" style="max-height: 150px;">
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h4 mb-3">Ask a Question</h2>
+                <div class="query-form">
+                    <div class="mb-3">
+                        <textarea id="queryInput" class="form-control form-control-lg" rows="3" placeholder="e.g., 'What are the emerging trends in renewable energy market?'"></textarea>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="detailedSourcesCheck" checked>
+                            <label class="form-check-label" for="detailedSourcesCheck">
+                                Show detailed sources
+                            </label>
+                        </div>
+                        <button id="submitQueryBtn" class="btn btn-primary px-4">
+                            <i class="fas fa-search me-2"></i> Submit Query
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Query result section -->
+        <div id="queryResultContainer" class="d-none">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h4 mb-0">Response</h2>
+                        <div>
+                            <button id="copyResponseBtn" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-copy me-1"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                    <div id="responseContent" class="bg-light p-3 rounded response-content">
+                        <!-- Response will be inserted here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div id="sourcesContainer" class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <h2 class="h4 mb-3">Sources</h2>
+                    <div id="sourcesList" class="sources-list">
+                        <!-- Sources will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Loading indicator -->
+        <div id="queryLoadingIndicator" class="d-none text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Processing your query...</p>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h4 mb-3">Recent Queries</h2>
+                <div id="recentQueriesList" class="list-group list-group-flush">
+                    <!-- Recent queries will be loaded here -->
+                    <div class="placeholder-glow">
+                        <span class="placeholder col-12 mb-2" style="height: 24px;"></span>
+                        <span class="placeholder col-12 mb-2" style="height: 24px;"></span>
+                        <span class="placeholder col-12 mb-2" style="height: 24px;"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h4 mb-3">Query Tips</h2>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item border-0 ps-0">
+                        <i class="fas fa-lightbulb text-warning me-2"></i>
+                        Be specific about the market segment you're interested in
+                    </li>
+                    <li class="list-group-item border-0 ps-0">
+                        <i class="fas fa-lightbulb text-warning me-2"></i>
+                        Include timeframes for trend-related questions
+                    </li>
+                    <li class="list-group-item border-0 ps-0">
+                        <i class="fas fa-lightbulb text-warning me-2"></i>
+                        Ask about relationships between different market factors
+                    </li>
+                    <li class="list-group-item border-0 ps-0">
+                        <i class="fas fa-lightbulb text-warning me-2"></i>
+                        Specify regions or geographical areas if relevant
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h2 class="h4 mb-3">Example Queries</h2>
+                <div class="list-group example-queries">
+                    <a href="#" class="list-group-item list-group-item-action example-query">What are the growth opportunities in renewable energy market?</a>
+                    <a href="#" class="list-group-item list-group-item-action example-query">Identify the main competitors in the AI software industry</a>
+                    <a href="#" class="list-group-item list-group-item-action example-query">What are the key regulatory challenges for fintech startups?</a>
+                    <a href="#" class="list-group-item list-group-item-action example-query">Summarize the impact of supply chain disruptions on retail</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load recent queries
+    loadRecentQueries();
+    
+    // Handle query submission
+    document.getElementById('submitQueryBtn').addEventListener('click', handleQuerySubmission);
+    
+    // Handle example query clicks
+    document.querySelectorAll('.example-query').forEach(example => {
+        example.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('queryInput').value = this.textContent;
+            document.getElementById('submitQueryBtn').click();
+        });
+    });
+    
+    // Handle copy response button
+    document.getElementById('copyResponseBtn').addEventListener('click', function() {
+        const responseText = document.getElementById('responseContent').textContent;
+        navigator.clipboard.writeText(responseText).then(() => {
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-check me-1"></i> Copied!';
+            setTimeout(() => {
+                this.innerHTML = originalText;
+            }, 2000);
+        });
+    });
+    
+    // Handle enter key in textarea
+    document.getElementById('queryInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            document.getElementById('submitQueryBtn').click();
+        }
+    });
+});
+
+async function loadRecentQueries() {
+    try {
+        const response = await axios.get('/api/queries');
+        const recentQueriesList = document.getElementById('recentQueriesList');
+        
+        if (response.data.success && response.data.queries.length > 0) {
+            recentQueriesList.innerHTML = '';
+            
+            response.data.queries.forEach(query => {
+                const queryItem = document.createElement('a');
+                queryItem.href = '#';
+                queryItem.className = 'list-group-item list-group-item-action recent-query';
+                queryItem.textContent = query.content;
+                queryItem.title = 'Click to reuse this query';
+                queryItem.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.getElementById('queryInput').value = query.content;
+                    document.getElementById('submitQueryBtn').click();
+                });
+                
+                recentQueriesList.appendChild(queryItem);
+            });
+        } else {
+            recentQueriesList.innerHTML = '<p class="text-muted">No recent queries found</p>';
+        }
+    } catch (error) {
+        console.error('Error loading recent queries:', error);
+        document.getElementById('recentQueriesList').innerHTML = 
+            '<p class="text-danger">Error loading recent queries</p>';
+    }
+}
+
+async function handleQuerySubmission() {
+    const queryInput = document.getElementById('queryInput');
+    const queryText = queryInput.value.trim();
+    
+    if (!queryText) {
+        alert('Please enter a query');
+        return;
+    }
+    
+    // Show loading indicator
+    document.getElementById('queryLoadingIndicator').classList.remove('d-none');
+    document.getElementById('queryResultContainer').classList.add('d-none');
+    
+    try {
+        const response = await axios.post('/api/query', {
+            query: queryText
+        });
+        
+        // Hide loading indicator
+        document.getElementById('queryLoadingIndicator').classList.add('d-none');
+        
+        if (response.data.success) {
+            // Show result container
+            document.getElementById('queryResultContainer').classList.remove('d-none');
+            
+            // Update response content
+            document.getElementById('responseContent').textContent = response.data.response;
+            
+            // Update sources list
+            const sourcesContainer = document.getElementById('sourcesContainer');
+            const sourcesList = document.getElementById('sourcesList');
+            sourcesList.innerHTML = '';
+            
+            if (response.data.sources && response.data.sources.length > 0) {
+                sourcesContainer.classList.remove('d-none');
+                
+                response.data.sources.forEach((source, index) => {
+                    const sourceElement = document.createElement('div');
+                    sourceElement.className = 'source-item mb-3 pb-3 border-bottom';
+                    
+                    const relevancePercentage = (source.relevance_score * 100).toFixed(1);
+                    
+                    sourceElement.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="h6 mb-0">${source.document_title}</h5>
+                            <span class="badge bg-primary">Match: ${relevancePercentage}%</span>
+                        </div>
+                        <div class="source-content bg-light p-2 rounded">
+                            <p class="mb-0 small">${source.chunk_content}</p>
+                        </div>
+                    `;
+                    
+                    sourcesList.appendChild(sourceElement);
+                });
+            } else {
+                sourcesContainer.classList.add('d-none');
+            }
+            
+            // Refresh recent queries list
+            loadRecentQueries();
+            
+        } else {
+            alert('Error: ' + response.data.error);
+        }
+    } catch (error) {
+        // Hide loading indicator
+        document.getElementById('queryLoadingIndicator').classList.add('d-none');
+        
+        console.error('Error submitting query:', error);
+        alert('Error processing your query: ' + (error.response?.data?.error || error.message));
+    }
+}
+</script>
+{% endblock %}

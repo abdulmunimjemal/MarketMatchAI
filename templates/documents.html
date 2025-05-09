@@ -1,0 +1,360 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Document Management</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadDocumentModal">
+        <i class="fas fa-file-upload me-2"></i> Upload Document
+    </button>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title h4 mb-3">Your Documents</h2>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Upload Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="documentsTableBody">
+                            <tr>
+                                <td colspan="4" class="text-center py-4">
+                                    <div class="placeholder-glow">
+                                        <p class="placeholder col-12"></p>
+                                        <p class="placeholder col-12"></p>
+                                        <p class="placeholder col-8"></p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="noDocumentsMessage" class="alert alert-info d-none">
+                    <i class="fas fa-info-circle me-2"></i> No documents uploaded yet. Upload your first document to get started!
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="card-title h4 mb-3">Document Stats</h2>
+                <canvas id="documentTypesChart" width="100%" height="150"></canvas>
+            </div>
+        </div>
+        
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title h4 mb-3">Tips</h2>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item border-0 ps-0">
+                        <i class="fas fa-check-circle text-success me-2"></i> 
+                        Upload text files for best results
+                    </li>
+                    <li class="list-group-item border-0 ps-0">
+                        <i class="fas fa-check-circle text-success me-2"></i> 
+                        Each document is automatically chunked
+                    </li>
+                    <li class="list-group-item border-0 ps-0">
+                        <i class="fas fa-check-circle text-success me-2"></i> 
+                        Processing may take a moment
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title h4 mb-3">Document Preview</h2>
+                <div id="documentPreviewPlaceholder" class="p-5 text-center bg-light rounded">
+                    <img src="https://pixabay.com/get/gce9697edfa9c82864fb394ebd8e2e11e27dd041606caebe34d71cd14ac894b25e08d3587f3b99a50fa67bd245057c7cf_1280.jpg" alt="Document Search Concept" class="img-fluid" style="max-height: 200px;">
+                    <p class="text-muted mt-3">Select a document from the table above to preview it</p>
+                </div>
+                <div id="documentPreviewContent" class="d-none">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h3 id="previewDocumentTitle" class="h5"></h3>
+                            <div class="bg-light p-3 rounded mt-3" style="max-height: 300px; overflow-y: auto;">
+                                <pre id="previewDocumentContent" class="mb-0" style="white-space: pre-wrap;"></pre>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <h4 class="h6">Document Chunks</h4>
+                            <div id="documentChunks" class="list-group" style="max-height: 300px; overflow-y: auto;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Document Modal -->
+<div class="modal fade" id="uploadDocumentModal" tabindex="-1" aria-labelledby="uploadDocumentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadDocumentModalLabel">Upload Document</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadDocumentForm">
+                    <div class="mb-3">
+                        <label for="documentFile" class="form-label">Select Document</label>
+                        <input type="file" class="form-control" id="documentFile" accept=".txt,.md,.csv,.json">
+                        <div class="form-text">Supported formats: .txt, .md, .csv, .json</div>
+                    </div>
+                    <div id="uploadProgress" class="progress d-none mb-3">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="uploadDocumentButton">Upload</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load documents
+    loadDocuments();
+    
+    // Initialize the charts
+    initializeCharts();
+    
+    // Handle document upload
+    document.getElementById('uploadDocumentButton').addEventListener('click', uploadDocument);
+});
+
+async function loadDocuments() {
+    try {
+        const response = await axios.get('/api/documents');
+        const tableBody = document.getElementById('documentsTableBody');
+        const noDocumentsMessage = document.getElementById('noDocumentsMessage');
+        
+        if (response.data.success && response.data.documents.length > 0) {
+            tableBody.innerHTML = '';
+            noDocumentsMessage.classList.add('d-none');
+            
+            response.data.documents.forEach(doc => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${doc.title}</td>
+                    <td>${doc.upload_date}</td>
+                    <td>
+                        ${doc.processed 
+                            ? '<span class="badge bg-success">Processed</span>' 
+                            : '<span class="badge bg-warning text-dark">Processing</span>'
+                        }
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary view-document" data-id="${doc.id}">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            // Add event listeners to view buttons
+            document.querySelectorAll('.view-document').forEach(button => {
+                button.addEventListener('click', function() {
+                    const documentId = this.getAttribute('data-id');
+                    viewDocument(documentId);
+                });
+            });
+            
+        } else {
+            tableBody.innerHTML = '';
+            noDocumentsMessage.classList.remove('d-none');
+        }
+        
+        // Update charts after loading documents
+        updateDocumentTypeChart(response.data.documents || []);
+        
+    } catch (error) {
+        console.error('Error loading documents:', error);
+        document.getElementById('documentsTableBody').innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center text-danger py-3">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Error loading documents. Please try again.
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function initializeCharts() {
+    const ctx = document.getElementById('documentTypesChart').getContext('2d');
+    window.documentTypesChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Text', 'Markdown', 'CSV', 'JSON'],
+            datasets: [{
+                data: [0, 0, 0, 0],
+                backgroundColor: ['#4285F4', '#34A853', '#FBBC05', '#EA4335'],
+                hoverBackgroundColor: ['#3b77db', '#2d9348', '#e1aa04', '#d03c2f']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateDocumentTypeChart(documents) {
+    const counts = {
+        'txt': 0,
+        'md': 0,
+        'csv': 0,
+        'json': 0
+    };
+    
+    documents.forEach(doc => {
+        const extension = doc.filename.split('.').pop().toLowerCase();
+        if (counts.hasOwnProperty(extension)) {
+            counts[extension]++;
+        }
+    });
+    
+    window.documentTypesChart.data.datasets[0].data = [
+        counts.txt, counts.md, counts.csv, counts.json
+    ];
+    window.documentTypesChart.update();
+}
+
+async function viewDocument(documentId) {
+    try {
+        const response = await axios.get(`/api/documents/${documentId}`);
+        
+        if (response.data.success) {
+            const doc = response.data.document;
+            
+            // Hide placeholder and show content
+            document.getElementById('documentPreviewPlaceholder').classList.add('d-none');
+            document.getElementById('documentPreviewContent').classList.remove('d-none');
+            
+            // Update document info
+            document.getElementById('previewDocumentTitle').textContent = doc.title;
+            document.getElementById('previewDocumentContent').textContent = doc.content;
+            
+            // Update document chunks
+            const chunksContainer = document.getElementById('documentChunks');
+            chunksContainer.innerHTML = '';
+            
+            if (doc.chunks && doc.chunks.length > 0) {
+                doc.chunks.forEach(chunk => {
+                    const chunkElement = document.createElement('a');
+                    chunkElement.href = '#';
+                    chunkElement.className = 'list-group-item list-group-item-action';
+                    chunkElement.innerHTML = `
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Chunk ${chunk.chunk_index + 1}</h6>
+                        </div>
+                        <small>${chunk.content}</small>
+                    `;
+                    chunksContainer.appendChild(chunkElement);
+                });
+            } else {
+                chunksContainer.innerHTML = '<div class="list-group-item">No chunks available</div>';
+            }
+        } else {
+            alert('Error: ' + (response.data.error || 'Could not load document'));
+        }
+    } catch (error) {
+        console.error('Error viewing document:', error);
+        alert('Error loading document details');
+    }
+}
+
+async function uploadDocument() {
+    const fileInput = document.getElementById('documentFile');
+    const progressBar = document.getElementById('uploadProgress');
+    const progressBarInner = progressBar.querySelector('.progress-bar');
+    
+    if (!fileInput.files[0]) {
+        alert('Please select a file to upload');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('document', file);
+    
+    // Show progress bar
+    progressBar.classList.remove('d-none');
+    progressBarInner.style.width = '0%';
+    
+    try {
+        // Simulate progress (in a real app, you'd use upload progress events)
+        const interval = setInterval(() => {
+            const currentWidth = parseInt(progressBarInner.style.width, 10);
+            if (currentWidth < 90) {
+                progressBarInner.style.width = (currentWidth + 10) + '%';
+            }
+        }, 300);
+        
+        const response = await axios.post('/api/documents/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        
+        clearInterval(interval);
+        progressBarInner.style.width = '100%';
+        
+        if (response.data.success) {
+            setTimeout(() => {
+                // Hide modal
+                bootstrap.Modal.getInstance(document.getElementById('uploadDocumentModal')).hide();
+                
+                // Reset form
+                document.getElementById('uploadDocumentForm').reset();
+                progressBar.classList.add('d-none');
+                
+                // Reload documents
+                loadDocuments();
+                
+                // Show success message
+                alert('Document uploaded successfully!');
+            }, 500);
+        } else {
+            alert('Error: ' + response.data.error);
+            progressBar.classList.add('d-none');
+        }
+    } catch (error) {
+        console.error('Error uploading document:', error);
+        clearInterval(interval);
+        progressBar.classList.add('d-none');
+        alert('Error uploading document: ' + (error.response?.data?.error || error.message));
+    }
+}
+</script>
+{% endblock %}
