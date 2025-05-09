@@ -7,7 +7,7 @@ This script can be used to switch between FAISS and Pinecone.
 import os
 import sys
 import logging
-from utils.vector_store_config import set_vector_store_type, get_vector_store_type, is_pinecone_available
+from utils.config import set_vector_store_type, get_vector_store_type, is_pinecone_available
 
 # Set up logging
 logging.basicConfig(
@@ -40,6 +40,9 @@ def switch_to_faiss():
     """Switch to FAISS vector store"""
     if set_vector_store_type('faiss'):
         print("Successfully switched to FAISS vector store")
+        # Reset the vector store to force reinitialization
+        import utils.vector_store
+        utils.vector_store.reset_vector_store()
     else:
         print("Failed to switch to FAISS vector store")
 
@@ -51,6 +54,9 @@ def switch_to_pinecone():
     
     if set_vector_store_type('pinecone'):
         print("Successfully switched to Pinecone vector store")
+        # Reset the vector store to force reinitialization
+        import utils.vector_store
+        utils.vector_store.reset_vector_store()
     else:
         print("Failed to switch to Pinecone vector store")
 
@@ -58,6 +64,23 @@ def check_pinecone():
     """Check if Pinecone is available"""
     if is_pinecone_available():
         print("Pinecone is available and configured correctly")
+        # Try to import pinecone
+        try:
+            import pinecone
+            print("Pinecone package is installed")
+            # Get Pinecone credentials from environment
+            api_key = os.environ.get("PINECONE_API_KEY")
+            environment = os.environ.get("PINECONE_ENVIRONMENT")
+            print(f"Environment: {environment}")
+            # Test connection (don't print API key for security)
+            try:
+                pc = pinecone.Pinecone(api_key=api_key)
+                indexes = [index.name for index in pc.list_indexes()]
+                print(f"Connected to Pinecone successfully. Available indexes: {indexes}")
+            except Exception as e:
+                print(f"Error connecting to Pinecone: {str(e)}")
+        except ImportError:
+            print("Pinecone package is not installed")
     else:
         print("Pinecone is not available")
         print("Please set the following environment variables:")

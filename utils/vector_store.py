@@ -1,4 +1,3 @@
-import os
 import uuid
 import logging
 import numpy as np
@@ -10,12 +9,12 @@ import pinecone
 from app import db
 from models import Document, DocumentChunk
 from utils.embedding import get_embeddings
+from utils.config import get_vector_store_type, is_pinecone_available, PINECONE_INDEX_NAME
 
 logger = logging.getLogger(__name__)
 
 # Singleton pattern for vector store
 _vector_store = None
-_pinecone_index_name = "marketmatch"  # Index name must be lowercase with no special chars
 
 def reset_vector_store():
     """Reset the vector store singleton to force reinitialization"""
@@ -23,20 +22,17 @@ def reset_vector_store():
     _vector_store = None
     logger.info("Vector store reset, will be reinitialized on next access")
 
-def get_vector_store_type():
-    """Get the configured vector store type"""
-    return os.environ.get("VECTOR_STORE_TYPE", "faiss").lower()
-
 def initialize_pinecone():
     """Initialize the Pinecone client"""
     try:
-        # Get Pinecone credentials from environment variables
-        pinecone_api_key = os.environ.get("PINECONE_API_KEY")
-        pinecone_environment = os.environ.get("PINECONE_ENVIRONMENT")
-        
-        if not pinecone_api_key or not pinecone_environment:
+        # Check if Pinecone credentials are available
+        if not is_pinecone_available():
             logger.warning("Pinecone credentials not found. Falling back to FAISS.")
             return False
+        
+        # Get Pinecone API key from environment
+        import os
+        pinecone_api_key = os.environ.get('PINECONE_API_KEY')
         
         # Initialize Pinecone with new API
         pc = pinecone.Pinecone(api_key=pinecone_api_key)
@@ -45,13 +41,24 @@ def initialize_pinecone():
             # Check if index exists
             index_list = [index.name for index in pc.list_indexes()]
             
-            if _pinecone_index_name not in index_list:
-                logger.info(f"Pinecone index '{_pinecone_index_name}' doesn't exist yet")
-                # For now, we'll use FAISS instead of creating a new index
-                # This is because index creation can take time and might fail
-                return False
+            if PINECONE_INDEX_NAME not in index_list:
+                logger.info(f"Pinecone index '{PINECONE_INDEX_NAME}' doesn't exist yet, creating it...")
+                # Create the index
+                try:
+                    from pinecone import ServerlessSpec
+                    pc.create_index(
+                        name=PINECONE_INDEX_NAME,
+                        dimension=1536,  # OpenAI ada-002 embeddings dimension
+                        metric="cosine",
+                        spec=ServerlessSpec(cloud="aws", region="us-east-1")
+                    )
+                    logger.info(f"Successfully created Pinecone index: {PINECONE_INDEX_NAME}")
+                    return True
+                except Exception as e:
+                    logger.error(f"Error creating Pinecone index: {str(e)}")
+                    return False
             else:
-                logger.info(f"Using existing Pinecone index: {_pinecone_index_name}")
+                logger.info(f"Using existing Pinecone index: {PINECONE_INDEX_NAME}")
                 return True
         except Exception as e:
             logger.error(f"Error checking Pinecone indexes: {str(e)}")
@@ -68,7 +75,7 @@ def get_vector_store():
     if _vector_store is not None:
         return _vector_store
     
-    # Get the store type from environment
+    # Get the store type from the config
     vector_store_type = get_vector_store_type()
     logger.info(f"Initializing vector store, type={vector_store_type}")
     
@@ -100,7 +107,8 @@ def get_vector_store():
         # Try to use Pinecone if credentials are available and it's enabled
         if vector_store_type == "pinecone" and initialize_pinecone():
             try:
-                # Get Pinecone credentials for LangChain integration
+                # Get Pinecone credentials from environment
+                import os
                 pinecone_api_key = os.environ.get("PINECONE_API_KEY")
                 
                 if not documents:
@@ -113,7 +121,7 @@ def get_vector_store():
                     _vector_store = LangchainPinecone.from_documents(
                         documents=[placeholder_doc],
                         embedding=embeddings,
-                        index_name=_pinecone_index_name,
+                        index_name=PINECONE_INDEX_NAME,
                         pinecone_api_key=pinecone_api_key
                     )
                 else:
@@ -121,7 +129,7 @@ def get_vector_store():
                     _vector_store = LangchainPinecone.from_documents(
                         documents=documents,
                         embedding=embeddings,
-                        index_name=_pinecone_index_name,
+                        index_name=PINECONE_INDEX_NAME,
                         pinecone_api_key=pinecone_api_key
                     )
                 
