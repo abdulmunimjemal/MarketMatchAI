@@ -1,7 +1,7 @@
 import os
 import logging
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.embeddings.huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
 logger = logging.getLogger(__name__)
 
@@ -20,25 +20,17 @@ def get_embeddings():
         openai_api_key = os.environ.get("OPENAI_API_KEY")
         if openai_api_key:
             logger.info("Using OpenAI embeddings")
+            # Both parameter formats work based on our test
             _embedding_instance = OpenAIEmbeddings(
-                api_key=openai_api_key,
+                openai_api_key=openai_api_key,
                 model="text-embedding-ada-002"
             )
-        # If no OpenAI key, try to use Google's text-embedding model
+        # Fall back to HuggingFace
         else:
-            google_api_key = os.environ.get("GOOGLE_API_KEY")
-            if google_api_key:
-                logger.info("Using Google embeddings")
-                from langchain.embeddings import GooglePalmEmbeddings
-                _embedding_instance = GooglePalmEmbeddings(
-                    google_api_key=google_api_key
-                )
-            # As a fallback, use a local HuggingFace model
-            else:
-                logger.info("Using HuggingFace embeddings as fallback")
-                _embedding_instance = HuggingFaceEmbeddings(
-                    model_name="sentence-transformers/all-MiniLM-L6-v2"
-                )
+            logger.info("Using HuggingFace embeddings as fallback")
+            _embedding_instance = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2"
+            )
         
         return _embedding_instance
     
