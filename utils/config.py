@@ -37,3 +37,21 @@ def is_pinecone_available():
         return False
     
     return True
+
+def is_openai_available():
+    """Check if OpenAI is available (API key is set)"""
+    openai_api_key = os.environ.get("OPENAI_API_KEY")
+    
+    if not openai_api_key:
+        logger.debug("OpenAI API key not found")
+        return False
+    
+    return True
+
+def get_system_status():
+    """Get the status of all system components"""
+    return {
+        "vector_store_type": get_vector_store_type(),
+        "pinecone_available": is_pinecone_available(),
+        "openai_available": is_openai_available(),
+    }

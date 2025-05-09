@@ -10,17 +10,16 @@ from app import db
 from models import Document, DocumentChunk
 from utils.embedding import get_embeddings
 from utils.config import get_vector_store_type, is_pinecone_available, PINECONE_INDEX_NAME
+from utils.vector_store_reset import get_vector_store_instance, set_vector_store_instance
 
 logger = logging.getLogger(__name__)
 
-# Singleton pattern for vector store
-_vector_store = None
-
 def reset_vector_store():
-    """Reset the vector store singleton to force reinitialization"""
-    global _vector_store
-    _vector_store = None
-    logger.info("Vector store reset, will be reinitialized on next access")
+    """Reset the vector store singleton to force reinitialization
+    This is a compatibility function that calls the actual reset in vector_store_reset.py
+    """
+    from utils.vector_store_reset import reset_vector_store as _reset
+    _reset()
 
 def initialize_pinecone():
     """Initialize the Pinecone client"""
@@ -70,10 +69,11 @@ def initialize_pinecone():
 
 def get_vector_store():
     """Get or create a vector store instance (Pinecone or FAISS fallback)"""
-    global _vector_store
+    # Get the current vector store instance from the reset module
+    vector_store = get_vector_store_instance()
     
-    if _vector_store is not None:
-        return _vector_store
+    if vector_store is not None:
+        return vector_store
     
     # Get the store type from the config
     vector_store_type = get_vector_store_type()
@@ -118,12 +118,13 @@ def get_vector_store():
                         metadata={"chunk_id": "placeholder", "document_id": "placeholder"}
                     )
                     
-                    _vector_store = LangchainPinecone.from_documents(
+                    vector_store = LangchainPinecone.from_documents(
                         documents=[placeholder_doc],
                         embedding=embeddings,
                         index_name=PINECONE_INDEX_NAME,
                         pinecone_api_key=pinecone_api_key
                     )
+                    set_vector_store_instance(vector_store)
                 else:
                     # Create a Pinecone vector store with existing documents
                     _vector_store = LangchainPinecone.from_documents(

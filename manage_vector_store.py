@@ -6,8 +6,15 @@ This script can be used to switch between FAISS and Pinecone.
 
 import os
 import sys
+import json
 import logging
-from utils.config import set_vector_store_type, get_vector_store_type, is_pinecone_available
+from utils.config import (
+    set_vector_store_type, 
+    get_vector_store_type, 
+    is_pinecone_available, 
+    is_openai_available,
+    get_system_status
+)
 
 # Set up logging
 logging.basicConfig(
@@ -24,16 +31,19 @@ def print_usage():
     print("  use-faiss - Switch to FAISS vector store")
     print("  use-pinecone - Switch to Pinecone vector store")
     print("  check-pinecone - Check if Pinecone is available")
+    print("  check-openai - Check if OpenAI is available")
+    print("  check-all - Check status of all components")
 
 def show_status():
     """Show current vector store status"""
-    current_type = get_vector_store_type()
-    pinecone_available = is_pinecone_available()
+    status = get_system_status()
     
-    print(f"Current vector store type: {current_type}")
-    print(f"Pinecone available: {'Yes' if pinecone_available else 'No'}")
+    print("=== System Status ===")
+    print(f"Current vector store type: {status['vector_store_type']}")
+    print(f"Pinecone available: {'Yes' if status['pinecone_available'] else 'No'}")
+    print(f"OpenAI available: {'Yes' if status['openai_available'] else 'No'}")
     
-    if current_type == 'pinecone' and not pinecone_available:
+    if status['vector_store_type'] == 'pinecone' and not status['pinecone_available']:
         print("WARNING: Pinecone is selected but not available. Will fall back to FAISS.")
 
 def switch_to_faiss():
@@ -87,6 +97,51 @@ def check_pinecone():
         print("  - PINECONE_API_KEY")
         print("  - PINECONE_ENVIRONMENT")
 
+def check_openai():
+    """Check if OpenAI is available"""
+    if is_openai_available():
+        print("OpenAI API key is available and configured correctly")
+        # Try to import openai
+        try:
+            import openai
+            print("OpenAI package is installed")
+            # Test connection (don't use actual API calls to avoid charges)
+            api_key = os.environ.get("OPENAI_API_KEY")
+            if api_key and api_key[:3] == "sk-":
+                print("OpenAI API key has the correct format")
+            else:
+                print("WARNING: OpenAI API key doesn't have the expected format (should start with 'sk-')")
+        except ImportError:
+            print("OpenAI package is not installed")
+    else:
+        print("OpenAI API key is not available")
+        print("Please set the following environment variable:")
+        print("  - OPENAI_API_KEY")
+
+def check_all():
+    """Check status of all components"""
+    status = get_system_status()
+    
+    print("=== Complete System Status ===")
+    print(json.dumps(status, indent=2))
+    
+    # Check components in detail
+    print("\n=== Checking Pinecone ===")
+    check_pinecone()
+    
+    print("\n=== Checking OpenAI ===")
+    check_openai()
+    
+    print("\n=== Vector Store Configuration ===")
+    print(f"Current vector store type: {status['vector_store_type']}")
+    if status['vector_store_type'] == 'pinecone':
+        if status['pinecone_available']:
+            print("✓ Pinecone is configured and available")
+        else:
+            print("✗ Pinecone is selected but not available")
+    else:
+        print("✓ Using local FAISS vector store")
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print_usage()
@@ -102,6 +157,10 @@ if __name__ == "__main__":
         switch_to_pinecone()
     elif command == "check-pinecone":
         check_pinecone()
+    elif command == "check-openai":
+        check_openai()
+    elif command == "check-all":
+        check_all()
     else:
         print(f"Unknown command: {command}")
         print_usage()
