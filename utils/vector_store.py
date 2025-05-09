@@ -15,8 +15,17 @@ logger = logging.getLogger(__name__)
 
 # Singleton pattern for vector store
 _vector_store = None
-_vector_store_type = os.environ.get("VECTOR_STORE_TYPE", "faiss").lower()  # Default to FAISS for now
 _pinecone_index_name = "marketmatch"  # Index name must be lowercase with no special chars
+
+def reset_vector_store():
+    """Reset the vector store singleton to force reinitialization"""
+    global _vector_store
+    _vector_store = None
+    logger.info("Vector store reset, will be reinitialized on next access")
+
+def get_vector_store_type():
+    """Get the configured vector store type"""
+    return os.environ.get("VECTOR_STORE_TYPE", "faiss").lower()
 
 def initialize_pinecone():
     """Initialize the Pinecone client"""
@@ -54,10 +63,14 @@ def initialize_pinecone():
 
 def get_vector_store():
     """Get or create a vector store instance (Pinecone or FAISS fallback)"""
-    global _vector_store, _vector_store_type
+    global _vector_store
     
     if _vector_store is not None:
         return _vector_store
+    
+    # Get the store type from environment
+    vector_store_type = get_vector_store_type()
+    logger.info(f"Initializing vector store, type={vector_store_type}")
     
     try:
         # Get the embedding model
@@ -82,8 +95,10 @@ def get_vector_store():
                 )
                 documents.append(doc)
         
+        logger.info(f"Found {len(documents)} document chunks in database")
+        
         # Try to use Pinecone if credentials are available and it's enabled
-        if _vector_store_type == "pinecone" and initialize_pinecone():
+        if vector_store_type == "pinecone" and initialize_pinecone():
             try:
                 # Get Pinecone credentials for LangChain integration
                 pinecone_api_key = os.environ.get("PINECONE_API_KEY")
@@ -110,16 +125,15 @@ def get_vector_store():
                         pinecone_api_key=pinecone_api_key
                     )
                 
-                logger.info("Using Pinecone vector store")
+                logger.info("Successfully initialized Pinecone vector store")
                 return _vector_store
             except Exception as e:
                 logger.error(f"Error creating Pinecone vector store: {str(e)}")
                 # Fall back to FAISS
-                _vector_store_type = "faiss"
+                logger.info("Falling back to FAISS vector store")
         
-        # Fall back to FAISS if Pinecone is not available or fails
-        _vector_store_type = "faiss"
-        logger.info("Using FAISS vector store (fallback)")
+        # Use FAISS if Pinecone is not available or fails
+        logger.info("Initializing FAISS vector store")
         
         if not documents:
             # Create an empty FAISS vector store
@@ -132,6 +146,7 @@ def get_vector_store():
             # Create a FAISS vector store with existing documents
             _vector_store = FAISS.from_documents(documents=documents, embedding=embeddings)
         
+        logger.info("Successfully initialized FAISS vector store")
         return _vector_store
     
     except Exception as e:
@@ -145,6 +160,7 @@ def add_text_to_vector_store(text, metadata):
     try:
         # Add text to vector store
         vector_store.add_texts(texts=[text], metadatas=[metadata])
+        logger.info(f"Added text to vector store with metadata: {metadata}")
         return vector_store
     except Exception as e:
         logger.error(f"Error adding text to vector store: {str(e)}")
@@ -157,6 +173,7 @@ def add_documents_to_vector_store(texts, metadatas):
     try:
         # Add texts to vector store
         vector_store.add_texts(texts=texts, metadatas=metadatas)
+        logger.info(f"Added {len(texts)} documents to vector store")
         return vector_store
     except Exception as e:
         logger.error(f"Error adding documents to vector store: {str(e)}")
@@ -167,7 +184,9 @@ def search_vector_store(query, k=5):
     vector_store = get_vector_store()
     
     try:
+        logger.info(f"Searching vector store for: '{query}'")
         results = vector_store.similarity_search_with_score(query, k=k)
+        logger.info(f"Found {len(results)} results")
         return results
     except Exception as e:
         logger.error(f"Error searching vector store: {str(e)}")

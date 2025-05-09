@@ -20,9 +20,9 @@ def get_embeddings():
         openai_api_key = os.environ.get("OPENAI_API_KEY")
         if openai_api_key:
             logger.info("Using OpenAI embeddings")
-            # Both parameter formats work based on our test
+            # Use api_key parameter as it works correctly
             _embedding_instance = OpenAIEmbeddings(
-                openai_api_key=openai_api_key,
+                api_key=openai_api_key,
                 model="text-embedding-ada-002"
             )
         # Fall back to HuggingFace
