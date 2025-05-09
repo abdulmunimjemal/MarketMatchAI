@@ -17,6 +17,7 @@ dependencies = [
     "langchain-community>=0.3.23",
     "pinecone>=6.0.2",
     "openai>=1.78.0",
+    "chromadb>=1.0.8",
 ]
 
 [[tool.uv.index]]
